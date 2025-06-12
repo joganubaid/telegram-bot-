@@ -75,12 +75,12 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [[InlineKeyboardButton(f"Unit {i}", callback_data=f"unit{i}") for i in range(1, 6)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        f"You selected *{subject.title()}*.
-Now select a unit:",
-        reply_markup=reply_markup,
-        parse_mode="Markdown"
-    )
+   await query.edit_message_text(
+    f"You selected *{subject.title()}*.\nNow select a unit:",
+    reply_markup=reply_markup,
+    parse_mode="Markdown"
+)
+
 
 async def unit_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
