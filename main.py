@@ -119,9 +119,9 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["subject"] = subject
 
     keyboard = [
-        [InlineKeyboardButton("📄 Mid Sem 1", callback_data="mid_sem1")],
-        [InlineKeyboardButton("📄 Mid Sem 2", callback_data="mid_sem2")],
-        [InlineKeyboardButton("📄 End Sem", callback_data="end_sem")],
+        [InlineKeyboardButton("📄 Mid Sem 1", callback_data="yearselect_mid_sem1")],
+        [InlineKeyboardButton("📄 Mid Sem 2", callback_data="yearselect_mid_sem2")],
+        [InlineKeyboardButton("📄 End Sem", callback_data="yearselect_end_sem")],
         [InlineKeyboardButton("📘 Notes: Unit 1", callback_data="unit1"),
          InlineKeyboardButton("Unit 2", callback_data="unit2")],
         [InlineKeyboardButton("Unit 3", callback_data="unit3"),
@@ -135,11 +135,15 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    exam_type = query.data
-    context.user_data["exam_type"] = exam_type
 
+    exam_type = query.data.replace("yearselect_", "")
+    context.user_data["exam_type"] = exam_type
     subject = context.user_data.get("subject")
+
     years = get_available_years(subject, exam_type)
+    if not years:
+        await query.message.reply_text("❌ No years available for this exam type.")
+        return
 
     keyboard = [[InlineKeyboardButton(year, callback_data=f"year_{year}")] for year in years]
     keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=subject)])
@@ -205,7 +209,7 @@ def main():
     app_bot = ApplicationBuilder().token(TOKEN).build()
     app_bot.add_handler(CommandHandler("start", start))
     app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects) + "$"))
-    app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^(mid_sem1|mid_sem2|end_sem)$"))
+    app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^yearselect_(mid_sem1|mid_sem2|end_sem)$"))
     app_bot.add_handler(CallbackQueryHandler(send_exam_pdf, pattern="^year_\\d{4}$"))
     app_bot.add_handler(CallbackQueryHandler(unit_note_handler, pattern="^unit[1-5]$"))
     app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_subjects$"))
@@ -214,4 +218,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
