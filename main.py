@@ -121,10 +121,16 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📄 Mid Sem 1", callback_data="mid_sem1")],
         [InlineKeyboardButton("📄 Mid Sem 2", callback_data="mid_sem2")],
-        [InlineKeyboardButton("📄 End Sem", callback_data="end_sem")]
+        [InlineKeyboardButton("📄 End Sem", callback_data="end_sem")],
+        [InlineKeyboardButton("📘 Notes: Unit 1", callback_data="unit1"),
+         InlineKeyboardButton("Unit 2", callback_data="unit2")],
+        [InlineKeyboardButton("Unit 3", callback_data="unit3"),
+         InlineKeyboardButton("Unit 4", callback_data="unit4")],
+        [InlineKeyboardButton("Unit 5", callback_data="unit5")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back_to_subjects")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f"📘 {subject.replace('_', ' ').title()} - Choose Exam Type:", reply_markup=reply_markup)
+    await query.edit_message_text(f"📘 {subject.replace('_', ' ').title()} - Choose an option:", reply_markup=reply_markup)
 
 async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -136,6 +142,7 @@ async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     years = get_available_years(subject, exam_type)
 
     keyboard = [[InlineKeyboardButton(year, callback_data=f"year_{year}")] for year in years]
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=subject)])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(f"📅 Select year for {exam_type.replace('_', ' ').title()}:", reply_markup=reply_markup)
@@ -171,6 +178,23 @@ async def send_exam_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("❌ PDF not found for that year.")
 
+async def unit_note_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    unit = query.data
+    subject = context.user_data.get("subject")
+
+    if not subject:
+        await query.message.reply_text("⚠️ Please select a subject first using /start.")
+        return
+
+    file_path = os.path.join(PDF_FOLDER, f"{subject}_{unit}.pdf")
+    if os.path.isfile(file_path):
+        with open(file_path, "rb") as f:
+            await query.message.reply_document(document=f)
+    else:
+        await query.message.reply_text("❌ PDF for this unit not found.")
+
 # Main Entry
 
 def main():
@@ -183,6 +207,8 @@ def main():
     app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects) + "$"))
     app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^(mid_sem1|mid_sem2|end_sem)$"))
     app_bot.add_handler(CallbackQueryHandler(send_exam_pdf, pattern="^year_\\d{4}$"))
+    app_bot.add_handler(CallbackQueryHandler(unit_note_handler, pattern="^unit[1-5]$"))
+    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_subjects$"))
     print("Bot is polling...")
     app_bot.run_polling()
 
