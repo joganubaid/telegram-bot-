@@ -140,26 +140,12 @@ async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["exam_type"] = exam_type
     subject = context.user_data.get("subject")
 
-    years = get_available_years(subject, exam_type)
-    if not years:
-        await query.message.reply_text("❌ No years available for this exam type.")
-        return
-
-    keyboard = [[InlineKeyboardButton(year, callback_data=f"year_{year}")] for year in years]
+    default_years = ["2024", "2023"]
+    keyboard = [[InlineKeyboardButton(year, callback_data=f"year_{year}")] for year in default_years]
     keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=subject)])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(f"📅 Select year for {exam_type.replace('_', ' ').title()}:", reply_markup=reply_markup)
-
-def get_available_years(subject: str, exam_type: str) -> list:
-    years = []
-    for file in os.listdir(PDF_FOLDER):
-        if file.startswith(f"{subject}_{exam_type}_") and file.endswith(".pdf"):
-            parts = file.split("_")
-            year_with_ext = parts[-1]
-            year = year_with_ext.split(".")[0]
-            years.append(year)
-    return sorted(set(years))
 
 async def send_exam_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -180,7 +166,7 @@ async def send_exam_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with open(file_path, "rb") as f:
             await query.message.reply_document(document=f)
     else:
-        await query.message.reply_text("❌ PDF not found for that year.")
+        await query.message.reply_text(f"❌ PDF for {subject.replace('_', ' ').title()} ({exam_type.replace('_', ' ').title()}) {year} not found.")
 
 async def unit_note_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
