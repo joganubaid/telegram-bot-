@@ -43,7 +43,12 @@ subjects = [
     "fundamental_of_computing",
     "design_thinking_lab",
     "engineering_graphics_lab",
-    "workshop"
+    "workshop",
+    "biology",
+    "mathematics",
+    "communication_skill",
+    "electrical_engineering",
+    "mechanical_engineering"
 ]
 
 # Log download to CSV and notify admin
