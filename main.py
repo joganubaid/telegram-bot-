@@ -26,34 +26,25 @@ def run_flask():
 def keep_alive():
     Thread(target=run_flask).start()
 
-# Subjects List
-THEORY_SUBJECTS = [
+# Subjects split into Theory and Labs
+subjects_theory = [
     "biology",
     "mathematics",
     "communication_skill",
     "electrical_engineering",
     "mechanical_engineering",
     "environmental_science",
-    "physics_1",
-    "physics_2",
-    "mathematics_1",
-    "mathematics_2",
-    "chemistry",
-    "constitution_of_india",
-    "civil_engineering",
-    "electronics",
-    "fundamental_of_computing"
+    "physics"
 ]
 
-LAB_SUBJECTS = [
-    "physics_laboratory_1",
-    "physics_laboratory_2",
+subjects_labs = [
+    "physics_lab",
     "engineering_graphics_lab",
     "workshop",
-    "mechanics_laboratory",
+    "mechanics_lab",
     "chemistry_lab",
     "language_lab",
-    "design_thinking"
+    "design_thinking_lab"
 ]
 
 # Log download to CSV and notify admin
@@ -120,14 +111,16 @@ def send_report_to_admin():
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(send_report_to_admin, 'cron', day_of_week='mon', hour=9, minute=0)
+    scheduler.add_job(send_report_to_admin, 'cron', day_of_week='mon', hour=9, minute=0)  # Weekly on Monday 9 AM
     scheduler.start()
 
 # Telegram Bot Commands
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("📘 Theory", callback_data="category_theory")],
-                [InlineKeyboardButton("🧪 Labs", callback_data="category_labs")]]
+    keyboard = [
+        [InlineKeyboardButton("📘 Theory Subjects", callback_data="theory")],
+        [InlineKeyboardButton("🧪 Lab Subjects", callback_data="labs")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.message:
@@ -136,29 +129,53 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("📚 Choose a category:", reply_markup=reply_markup)
 
-async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_subjects(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    category = query.data.replace("category_", "")
+    category = query.data
 
-    subjects = THEORY_SUBJECTS if category == "theory" else LAB_SUBJECTS
-    context.user_data["category"] = category
+    if category == "theory":
+        keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects_theory]
+    elif category == "labs":
+        keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects_labs]
+    else:
+        keyboard = []
 
-    keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects]
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")])
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_categories")])
     reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await query.edit_message_text("📘 Select a subject:", reply_markup=reply_markup)
+    await query.edit_message_text("📚 Select a subject:", reply_markup=reply_markup)
 
 async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     subject = query.data
     context.user_data["subject"] = subject
 
-    if subject in LAB_SUBJECTS:
-        keyboard = [[InlineKeyboardButton("📁 Material", callback_data="lab_material")],
-                    [InlineKeyboardButton("⬅️ Back to Subjects", callback_data=f"category_{context.user_data.get('category')}")]]
+    if subject == "physics":
+        keyboard = [
+            [InlineKeyboardButton("Physics 1", callback_data="physics1")],
+            [InlineKeyboardButton("Physics 2", callback_data="physics2")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
+        ]
+        await query.edit_message_text("🔬 Select a Physics section:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+    elif subject == "mathematics":
+        keyboard = [
+            [InlineKeyboardButton("Mathematics 1", callback_data="mathematics1")],
+            [InlineKeyboardButton("Mathematics 2", callback_data="mathematics2")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
+        ]
+        await query.edit_message_text("📐 Select a Mathematics section:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    is_lab = subject in subjects_labs
+
+    if is_lab:
+        keyboard = [
+            [InlineKeyboardButton("📘 Material", callback_data="unit1")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="labs")]
+        ]
     else:
         keyboard = [
             [InlineKeyboardButton("📄 Mid Sem 1", callback_data="yearselect_mid_sem1")],
@@ -169,14 +186,16 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Unit 3", callback_data="unit3"),
              InlineKeyboardButton("Unit 4", callback_data="unit4")],
             [InlineKeyboardButton("Unit 5", callback_data="unit5")],
-            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data=f"category_{context.user_data.get('category')}")]
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
         ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"📘 {subject.replace('_', ' ').title()} - Choose an option:", reply_markup=reply_markup)
 
 async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     exam_type = query.data.replace("yearselect_", "")
     context.user_data["exam_type"] = exam_type
     subject = context.user_data.get("subject")
@@ -191,6 +210,7 @@ async def ask_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_exam_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     year = query.data.split("_")[1]
     subject = context.user_data.get("subject")
     exam_type = context.user_data.get("exam_type")
@@ -200,6 +220,7 @@ async def send_exam_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     file_path = os.path.join(PDF_FOLDER, f"{subject}_{exam_type}_{year}.pdf")
+
     if os.path.isfile(file_path):
         log_download(query.from_user, subject, exam_type, year)
         with open(file_path, "rb") as f:
@@ -224,18 +245,6 @@ async def unit_note_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("❌ PDF for this unit not found.")
 
-async def lab_material_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    subject = context.user_data.get("subject")
-
-    file_path = os.path.join(PDF_FOLDER, f"{subject}_material.pdf")
-    if os.path.isfile(file_path):
-        with open(file_path, "rb") as f:
-            await query.message.reply_document(document=f)
-    else:
-        await query.message.reply_text("❌ Material PDF not found.")
-
 # Main Entry
 
 def main():
@@ -245,16 +254,14 @@ def main():
 
     app_bot = ApplicationBuilder().token(TOKEN).build()
     app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_main$"))
-    app_bot.add_handler(CallbackQueryHandler(category_handler, pattern="^category_(theory|labs)$"))
-    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(THEORY_SUBJECTS + LAB_SUBJECTS) + "$"))
+    app_bot.add_handler(CallbackQueryHandler(show_subjects, pattern="^(theory|labs)$"))
+    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_categories$"))
+    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects_theory + subjects_labs + ["physics1", "physics2", "mathematics1", "mathematics2"]) + "$"))
     app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^yearselect_(mid_sem1|mid_sem2|end_sem)$"))
     app_bot.add_handler(CallbackQueryHandler(send_exam_pdf, pattern="^year_\\d{4}$"))
     app_bot.add_handler(CallbackQueryHandler(unit_note_handler, pattern="^unit[1-5]$"))
-    app_bot.add_handler(CallbackQueryHandler(lab_material_handler, pattern="^lab_material$"))
     print("Bot is polling...")
     app_bot.run_polling()
 
 if __name__ == "__main__":
     main()
-
