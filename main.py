@@ -13,7 +13,6 @@ ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "123456789"))  # Replace with you
 PDF_FOLDER = "pdfs"
 LOG_FOLDER = "logs"
 
-# Flask app for keep-alive
 app = Flask('')
 
 @app.route('/')
@@ -26,32 +25,19 @@ def run_flask():
 def keep_alive():
     Thread(target=run_flask).start()
 
-# Subjects List
-subjects = [
-    "physics_1",
-    "physics_2",
-    "mathematics_1",
-    "mathematics_2",
-    "chemistry",
-    "constitution_of_india",
-    "civil_engineering",
-    "physics_laboratory_1",
-    "physics_laboratory_2",
-    "mechanics_laboratory",
-    "environmental_science",
-    "electronics",
-    "fundamental_of_computing",
-    "design_thinking_lab",
-    "engineering_graphics_lab",
-    "workshop",
-    "biology",
-    "mathematics",
-    "communication_skill",
-    "electrical_engineering",
-    "mechanical_engineering"
+# Categorized subjects
+THEORY_SUBJECTS = [
+    "physics_1", "physics_2", "mathematics_1", "mathematics_2", "chemistry",
+    "civil_engineering", "environmental_science", "electrical_engineering",
+    "mechanical_engineering", "electronics", "constitution_of_india",
+    "communication_skill", "fundamental_of_computing"
 ]
 
-# Log download to CSV and notify admin
+LAB_SUBJECTS = [
+    "physics_laboratory_1", "physics_laboratory_2", "engineering_graphics_lab",
+    "workshop", "mechanics_lab", "chemistry_lab", "language_lab", "design_thinking_lab"
+]
+
 def log_download(user, subject, exam_type, year):
     os.makedirs(LOG_FOLDER, exist_ok=True)
     log_file = os.path.join(LOG_FOLDER, "downloads.csv")
@@ -75,7 +61,6 @@ def log_download(user, subject, exam_type, year):
     except Exception as e:
         print(f"Admin alert failed: {e}")
 
-# Clean logs older than 30 days
 def clean_old_logs():
     log_file = os.path.join(LOG_FOLDER, "downloads.csv")
     if not os.path.isfile(log_file):
@@ -85,7 +70,6 @@ def clean_old_logs():
     df = df[df["Timestamp"] >= (datetime.now() - timedelta(days=30))]
     df.to_csv(log_file, index=False)
 
-# Scheduled report to admin
 def send_report_to_admin():
     log_file = os.path.join(LOG_FOLDER, "downloads.csv")
     if not os.path.isfile(log_file):
@@ -111,24 +95,38 @@ def send_report_to_admin():
     except Exception as e:
         print(f"[Scheduler] Report error: {e}")
 
-# Scheduler
-
 def start_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(send_report_to_admin, 'cron', day_of_week='mon', hour=9, minute=0)  # Weekly on Monday 9 AM
+    scheduler.add_job(send_report_to_admin, 'cron', day_of_week='mon', hour=9, minute=0)
     scheduler.start()
 
-# Telegram Bot Commands
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects]
+    keyboard = [
+        [InlineKeyboardButton("📘 Theory Subjects", callback_data="category_theory")],
+        [InlineKeyboardButton("🧪 Lab Subjects", callback_data="category_lab")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.message:
-        await update.message.reply_text("📚 Select a subject:", reply_markup=reply_markup)
+        await update.message.reply_text("📚 Choose a category:", reply_markup=reply_markup)
     elif update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text("📚 Select a subject:", reply_markup=reply_markup)
+        await update.callback_query.edit_message_text("📚 Choose a category:", reply_markup=reply_markup)
+
+async def show_subjects(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    category = query.data
+    if category == "category_theory":
+        subjects = THEORY_SUBJECTS
+    else:
+        subjects = LAB_SUBJECTS
+
+    keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects]
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("📘 Select a subject:", reply_markup=reply_markup)
 
 async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -146,7 +144,7 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Unit 3", callback_data="unit3"),
          InlineKeyboardButton("Unit 4", callback_data="unit4")],
         [InlineKeyboardButton("Unit 5", callback_data="unit5")],
-        [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="back_to_subjects")]
+        [InlineKeyboardButton("⬅️ Back to Categories", callback_data="back_to_main")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"📘 {subject.replace('_', ' ').title()} - Choose an option:", reply_markup=reply_markup)
@@ -204,8 +202,6 @@ async def unit_note_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("❌ PDF for this unit not found.")
 
-# Main Entry
-
 def main():
     keep_alive()
     clean_old_logs()
@@ -213,11 +209,12 @@ def main():
 
     app_bot = ApplicationBuilder().token(TOKEN).build()
     app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects) + "$"))
+    app_bot.add_handler(CallbackQueryHandler(show_subjects, pattern="^category_(theory|lab)$"))
+    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_main$"))
+    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(THEORY_SUBJECTS + LAB_SUBJECTS) + "$"))
     app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^yearselect_(mid_sem1|mid_sem2|end_sem)$"))
     app_bot.add_handler(CallbackQueryHandler(send_exam_pdf, pattern="^year_\\d{4}$"))
     app_bot.add_handler(CallbackQueryHandler(unit_note_handler, pattern="^unit[1-5]$"))
-    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_subjects$"))
     print("Bot is polling...")
     app_bot.run_polling()
 
