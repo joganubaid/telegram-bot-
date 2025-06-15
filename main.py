@@ -28,13 +28,22 @@ def keep_alive():
 
 # Subjects List
 subjects = [
-    "biology",
-    "mathematics",
-    "physics",
-    "communication_skill",
-    "electrical_engineering",
-    "mechanical_engineering",
-    "environmental_science"
+    "physics_1",
+    "physics_2",
+    "mathematics_1",
+    "mathematics_2",
+    "chemistry",
+    "constitution_of_india",
+    "civil_engineering",
+    "physics_laboratory_1",
+    "physics_laboratory_2",
+    "mechanics_laboratory",
+    "environmental_science",
+    "electronics",
+    "fundamental_of_computing",
+    "design_thinking_lab",
+    "engineering_graphics_lab",
+    "workshop"
 ]
 
 # Log download to CSV and notify admin
@@ -209,4 +218,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
