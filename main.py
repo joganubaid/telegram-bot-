@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import pandas as pd
 
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "123456789"))  # Replace with your actual Telegram user ID
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "7437848217"))  # Replace with your actual Telegram user ID
 PDF_FOLDER = "pdfs"
 LOG_FOLDER = "logs"
 
