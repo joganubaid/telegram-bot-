@@ -26,15 +26,25 @@ def run_flask():
 def keep_alive():
     Thread(target=run_flask).start()
 
-# Subjects List
-subjects = [
+# Subjects split into Theory and Labs
+subjects_theory = [
     "biology",
     "mathematics",
-    "physics",
     "communication_skill",
     "electrical_engineering",
     "mechanical_engineering",
-    "environmental_science"
+    "environmental_science",
+    "physics"
+]
+
+subjects_labs = [
+    "physics_lab",
+    "engineering_graphics_lab",
+    "workshop",
+    "mechanics_lab",
+    "chemistry_lab",
+    "language_lab",
+    "design_thinking_lab"
 ]
 
 # Log download to CSV and notify admin
@@ -107,14 +117,33 @@ def start_scheduler():
 # Telegram Bot Commands
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects]
+    keyboard = [
+        [InlineKeyboardButton("📘 Theory Subjects", callback_data="theory")],
+        [InlineKeyboardButton("🧪 Lab Subjects", callback_data="labs")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.message:
-        await update.message.reply_text("📚 Select a subject:", reply_markup=reply_markup)
+        await update.message.reply_text("📚 Choose a category:", reply_markup=reply_markup)
     elif update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text("📚 Select a subject:", reply_markup=reply_markup)
+        await update.callback_query.edit_message_text("📚 Choose a category:", reply_markup=reply_markup)
+
+async def show_subjects(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category = query.data
+
+    if category == "theory":
+        keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects_theory]
+    elif category == "labs":
+        keyboard = [[InlineKeyboardButton(subj.replace("_", " ").title(), callback_data=subj)] for subj in subjects_labs]
+    else:
+        keyboard = []
+
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_categories")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("📚 Select a subject:", reply_markup=reply_markup)
 
 async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -123,17 +152,43 @@ async def subject_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subject = query.data
     context.user_data["subject"] = subject
 
-    keyboard = [
-        [InlineKeyboardButton("📄 Mid Sem 1", callback_data="yearselect_mid_sem1")],
-        [InlineKeyboardButton("📄 Mid Sem 2", callback_data="yearselect_mid_sem2")],
-        [InlineKeyboardButton("📄 End Sem", callback_data="yearselect_end_sem")],
-        [InlineKeyboardButton("📘 Notes: Unit 1", callback_data="unit1"),
-         InlineKeyboardButton("Unit 2", callback_data="unit2")],
-        [InlineKeyboardButton("Unit 3", callback_data="unit3"),
-         InlineKeyboardButton("Unit 4", callback_data="unit4")],
-        [InlineKeyboardButton("Unit 5", callback_data="unit5")],
-        [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="back_to_subjects")]
-    ]
+    if subject == "physics":
+        keyboard = [
+            [InlineKeyboardButton("Physics 1", callback_data="physics1")],
+            [InlineKeyboardButton("Physics 2", callback_data="physics2")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
+        ]
+        await query.edit_message_text("🔬 Select a Physics section:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+    elif subject == "mathematics":
+        keyboard = [
+            [InlineKeyboardButton("Mathematics 1", callback_data="mathematics1")],
+            [InlineKeyboardButton("Mathematics 2", callback_data="mathematics2")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
+        ]
+        await query.edit_message_text("📐 Select a Mathematics section:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    is_lab = subject in subjects_labs
+
+    if is_lab:
+        keyboard = [
+            [InlineKeyboardButton("📘 Material", callback_data="unit1")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="labs")]
+        ]
+    else:
+        keyboard = [
+            [InlineKeyboardButton("📄 Mid Sem 1", callback_data="yearselect_mid_sem1")],
+            [InlineKeyboardButton("📄 Mid Sem 2", callback_data="yearselect_mid_sem2")],
+            [InlineKeyboardButton("📄 End Sem", callback_data="yearselect_end_sem")],
+            [InlineKeyboardButton("📘 Notes: Unit 1", callback_data="unit1"),
+             InlineKeyboardButton("Unit 2", callback_data="unit2")],
+            [InlineKeyboardButton("Unit 3", callback_data="unit3"),
+             InlineKeyboardButton("Unit 4", callback_data="unit4")],
+            [InlineKeyboardButton("Unit 5", callback_data="unit5")],
+            [InlineKeyboardButton("⬅️ Back to Subjects", callback_data="theory")]
+        ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"📘 {subject.replace('_', ' ').title()} - Choose an option:", reply_markup=reply_markup)
 
@@ -199,14 +254,14 @@ def main():
 
     app_bot = ApplicationBuilder().token(TOKEN).build()
     app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects) + "$"))
+    app_bot.add_handler(CallbackQueryHandler(show_subjects, pattern="^(theory|labs)$"))
+    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_categories$"))
+    app_bot.add_handler(CallbackQueryHandler(subject_handler, pattern="^" + "|".join(subjects_theory + subjects_labs + ["physics1", "physics2", "mathematics1", "mathematics2"]) + "$"))
     app_bot.add_handler(CallbackQueryHandler(ask_year, pattern="^yearselect_(mid_sem1|mid_sem2|end_sem)$"))
     app_bot.add_handler(CallbackQueryHandler(send_exam_pdf, pattern="^year_\\d{4}$"))
     app_bot.add_handler(CallbackQueryHandler(unit_note_handler, pattern="^unit[1-5]$"))
-    app_bot.add_handler(CallbackQueryHandler(start, pattern="^back_to_subjects$"))
     print("Bot is polling...")
     app_bot.run_polling()
 
 if __name__ == "__main__":
     main()
-
